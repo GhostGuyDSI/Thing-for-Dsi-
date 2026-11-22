@@ -1,0 +1,117 @@
+<?php
+// Create folders for saved art if they don't exist
+if (!is_dir('art')) { mkdir('art', 0755, true); }
+
+$msg = "";
+$palette = array('#FFFFFF', '#000000', '#FF0000', '#00AA00', '#0000FF', '#FFCC00');
+
+// Handle saving the drawing when the user taps "Save Art"
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['grid'])) {
+    $data = preg_replace('/[^0-5]/', '0', $_POST['grid']);
+    if (strlen($data) === 256) { // 16x16 grid
+        $img = imagecreatetruecolor(128, 128);
+        $colors = array(
+            imagecolorallocate($img, 255, 255, 255),
+            imagecolorallocate($img, 0, 0, 0),
+            imagecolorallocate($img, 255, 0, 0),
+            imagecolorallocate($img, 0, 170, 0),
+            imagecolorallocate($img, 0, 0, 255),
+            imagecolorallocate($img, 255, 204, 0)
+        );
+        for ($i = 0; $i < 256; $i++) {
+            $x = ($i % 16) * 8;
+            $y = floor($i / 16) * 8;
+            $c = (int)$data[$i];
+            imagefilledrectangle($img, $x, $y, $x + 7, $y + 7, $colors[$c]);
+        }
+        $filename = 'art/dsi_' . time() . '.png';
+        imagepng($img, $filename);
+        imagedestroy($img);
+        $msg = "Saved!";
+    }
+}
+$gallery = array_reverse(glob('art/*.png'));
+?>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="viewport" content="width=256">
+<title>My DSi Paint</title>
+<style type="text/css">
+body { margin: 0; padding: 4px; background: #E0E8F0; font-family: sans-serif; font-size: 11px; width: 248px; }
+h1 { font-size: 13px; margin: 0 0 4px 0; color: #224488; }
+table.canvas { border-collapse: collapse; background: #FFF; border: 1px solid #333; }
+table.canvas td { width: 9px; height: 9px; border: 1px solid #DDD; padding: 0; font-size: 1px; }
+.swatch { display: inline-block; width: 16px; height: 16px; border: 1px solid #000; margin-right: 2px; }
+.gallery img { border: 1px solid #666; margin: 2px; width: 64px; height: 64px; }
+</style>
+<script type="text/javascript">
+var curColor = 1;
+var hex = ['#FFFFFF', '#000000', '#FF0000', '#00AA00', '#0000FF', '#FFCC00'];
+var grid = [];
+for (var i = 0; i < 256; i++) { grid[i] = 0; }
+
+function pick(c) {
+    curColor = c;
+    document.getElementById('status').innerHTML = 'Color: ' + c;
+}
+function paint(idx, cell) {
+    grid[idx] = curColor;
+    cell.style.backgroundColor = hex[curColor];
+}
+function prepSave() {
+    document.getElementById('gridInput').value = grid.join('');
+    return true;
+}
+</script>
+</head>
+<body>
+<h1>DSi Mini Paint <?php echo $msg; ?></h1>
+
+<!-- Interactive Canvas (Fits immediately on bottom DSi screen) -->
+<table border="0" cellpadding="0" cellspacing="4">
+<tr>
+<td>
+<table class="canvas">
+<?php
+for ($r = 0; $r < 16; $r++) {
+    echo "<tr>";
+    for ($c = 0; $c < 16; $c++) {
+        $idx = $r * 16 + $c;
+        echo "<td onclick=\"paint($idx,this)\">&nbsp;</td>";
+    }
+    echo "</tr>";
+}
+?>
+</table>
+</td>
+<td valign="top">
+<div><b>Colors:</b></div>
+<?php
+foreach ($palette as $k => $color) {
+    echo "<div class=\"swatch\" style=\"background:$color\" onclick=\"pick($k)\"></div>";
+    if ($k % 2 == 1) echo "<br>";
+}
+?>
+<br>
+<span id="status">Color: 1</span><br><br>
+<form method="post" onsubmit="return prepSave()">
+<input type="hidden" name="grid" id="gridInput">
+<input type="submit" value="Save Art">
+</form>
+</td>
+</tr>
+</table>
+
+<hr>
+<b>Recent DSi Drawings:</b>
+<div class="gallery">
+<?php
+foreach (array_slice($gallery, 0, 6) as $file) {
+    echo "<img src=\"$file\" alt=\"DSi Art\">";
+}
+?>
+</div>
+</body>
+</html>
